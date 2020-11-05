@@ -1,0 +1,144 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta http-equiv="content-type" content="text/html; charset=utf-8"><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" name="viewport"><meta content="yes" name="apple-mobile-web-app-capable"><meta content="black-translucent" name="apple-mobile-web-app-status-bar-style"><meta content="telephone=no" name="format-detection"><meta name="description" content=""><link rel="stylesheet" type="text/css" href="//fonts.loli.net/css?family=Source+Code+Pro"><link rel="stylesheet" type="text/css" href="/css/style.css?v=2.0.5"><link rel="stylesheet" type="text/css" href="/css/highlight.css?v=2.0.5"><link rel="Shortcut Icon" href="/favicon.ico"><link rel="bookmark" href="/favicon.ico"><link rel="apple-touch-icon" href="/apple-touch-icon.png"><link rel="apple-touch-icon-precomposed" href="/apple-touch-icon.png"><title>开源API网关Kong笔记 | 高小秋</title><meta name="generator" content="Hexo 5.2.0"></head><body><div class="body_container"><div id="header"><div class="site-name"><h1 class="hidden">开源API网关Kong笔记</h1><a id="logo" href="/.">高小秋</a><p class="description">要么庸俗，要么孤独。</p></div><div id="nav-menu"><a href="/." class="current"><i class="fa fa-home"> 首页</i></a><a href="/archives/"><i class="fa fa-archive"> 归档</i></a><a href="/about/"><i class="fa fa-user"> 关于</i></a><a href="/atom.xml"><i class="fa fa-rss"> 订阅</i></a></div><div id="search-form"><div id="result-mask" class="hide"></div><label><input id="search-key" type="text" autocomplete="off" placeholder="搜索"></label><div id="result-wrap" class="hide"><div id="search-result"></div></div><div class="hide"><template id="search-tpl"><div class="item"><a href="/{path}" title="{title}"><div class="title">{title}</div><div class="time">{date}</div><div class="tags">{tags}</div></a></div></template></div></div></div><div id="layout" class="layout-g"><div class="layout-l"><div class="content_container"><div class="post"><h1 class="post-title">开源API网关Kong笔记</h1><div class="post-meta"><a href="/2020/11/05/%E5%BC%80%E6%BA%90API%E7%BD%91%E5%85%B3Kong%E7%AC%94%E8%AE%B0/#comments" class="comment-count"></a><p><span class="date">Nov 05, 2020</span><span><i id="busuanzi_container_page_pv"><i id="busuanzi_value_page_pv"></i><i>点击</i></i></span></p></div><div class="post-content"><h2 id="什么是API网关？"><a href="#什么是API网关？" class="headerlink" title="什么是API网关？"></a>什么是API网关？</h2><p>API 网关并非一个新兴的概念，在十几年前就已经存在了，它的作用主要是作为流量的入口，统一的处理和业务相关的请求，让请求更加安全、快速和准确的得到处理。</p>
+<p>它有以下传统的功能：</p>
+<ol>
+<li><p>反向代理和负载均衡，这和 Nginx 的定位和功能是一致的；</p>
+</li>
+<li><p>动态上游、动态 SSL 证书和动态限流限速等运行时的动态功能，这是开源版本 Nginx并不具备的功能；</p>
+</li>
+<li><p>上游的主动和被动健康检查，以及服务熔断；</p>
+</li>
+<li><p>在 API 网关的基础之上进行扩展，成为全生命周期的 API 管理平台。</p>
+</li>
+</ol>
+<h2 id="Kong简介"><a href="#Kong简介" class="headerlink" title="Kong简介"></a>Kong简介</h2><p>Kong基于<strong>Nginx</strong>，利用了其稳定性和高效率。Kong是Mashape开源的高性能高可用API网关和API服务管理层。</p>
+<p>Kong是一个在Nginx中运行的Lua应用程序，并且可以通过lua-nginx模块实现。Kong不是用这个模块编译Nginx，而是与OpenResty一起分发，OpenResty已经包含了lua-nginx-module。OpenResty不是Nginx的分支，而是一组扩展其功能的模块。Kong基于OpenResty，进行API管理，并提供了插件实现API的AOP。</p>
+<p> 这为可插拔架构奠定了基础，可以在运行时启用和执行Lua脚本（称为“插件”）。 因此，我们认为Kong是微服务架构的典范：它的核心是<strong>实现数据库抽象，路由和插件管理</strong>。 插件可以存在于单独的代码库中，并且可以在几行代码中注入到请求生命周期的任何位置。</p>
+<p>目前互联网后台架构一般是采用微服务，或者类似微服务的形式，应用的请求通常需要访问多个后台系统。如果让每一个后台系统都实现鉴权、限流、<a target="_blank" rel="noopener" href="https://cloud.tencent.com/product/clb?from=10680">负载均衡</a>、审计等基础功能是不合适的，通用的做法是把这些功能抽离出来放到网关层。Kong是目前最流行的网关平台。</p>
+<h2 id="Kong的基本架构"><a href="#Kong的基本架构" class="headerlink" title="Kong的基本架构"></a>Kong的基本架构</h2><p><img src="https://raw.githubusercontent.com/fluetty/clouding/main/data/view.png" alt="view"></p>
+<h3 id="Kong-默认绑定4个端口"><a href="#Kong-默认绑定4个端口" class="headerlink" title="Kong 默认绑定4个端口"></a>Kong 默认绑定4个端口</h3><ul>
+<li>:8000 用来接受用户的HTTP请求，并转发到后台系统</li>
+<li>:8443 用来接受用户的HTTPS请求，并转发到后台系统</li>
+<li>:8001 通过HTTP协议提供管理功能的API （Admin API）</li>
+<li>:8444 通过HTTPS协议提供管理功能的API</li>
+</ul>
+<p>这些端口可以在**/etc/kong/kong.conf**中修改，当然我们可以把Admin API作为一个服务通过kong的网关暴露出去。</p>
+<h3 id="Kong-主要有三个组件"><a href="#Kong-主要有三个组件" class="headerlink" title="Kong 主要有三个组件"></a>Kong 主要有三个组件</h3><ul>
+<li>Kong Server ：基于nginx的服务器，用来接收 API 请求。</li>
+<li>Apache Cassandra/PostgreSQL：用来存储操作数据。</li>
+<li>Kong dashboard：官方推荐 UI 管理工具，当然，也可以使用 restfull 方式管理 admin api。</li>
+</ul>
+<p>Kong 采用插件机制进行功能定制，插件集（可以是 0 或 N 个）在 API 请求响应循环的生命周期中被执行。<strong>插件使用 Lua 编写</strong>，基础功能包括：HTTP 基本认证、密钥认证、CORS（Cross-Origin Resource Sharing，跨域资源共享）、TCP、UDP、文件日志、API 请求限流、请求转发以及 Nginx 监控等。</p>
+<h3 id="Kong-网关具有以下的特性"><a href="#Kong-网关具有以下的特性" class="headerlink" title="Kong 网关具有以下的特性"></a>Kong 网关具有以下的特性</h3><ul>
+<li>可扩展性: 通过简单地添加更多的服务器，可以轻松地进行横向扩展，这意味着您的平台可以在一个较低负载的情况下处理任何请求；</li>
+<li>模块化: 可以通过添加新的插件进行扩展，这些插件可以通过RESTful Admin API轻松配置；</li>
+<li>在任何基础架构上运行: Kong 网关可以在任何地方都能运行。可以在云或内部网络环境中部署 Kong，包括单个或多个数据中心设置，以及 public，private 或 invite-only APIs。</li>
+</ul>
+<h2 id="相关术语"><a href="#相关术语" class="headerlink" title="相关术语"></a>相关术语</h2><ul>
+<li><p>Route：是请求的转发规则，按照Hostname和PATH，将请求转发给Service。<strong>路由是定义对这个服务暴露给客户端的请求路径及请求方式。服务与路由是1对多的关系，一个服务可以以多种路由方式暴露给前端访问，该服务对应的上游服务就是1个API</strong>。  告诉Kong怎么把网关收到的请求发送到某个特定的后台服务。</p>
+</li>
+<li><p>Services：是多个Upstream的集合，是Route的转发目标。<strong>不要把Services当作后端的具体API，要把它当作一个大的服务，该服务下面有多个API（endpoint or route）</strong>。</p>
+</li>
+<li><p>Consumer：是API的用户，里面记录用户的一些信息。</p>
+</li>
+<li><p>Plugin：是插件，plugin可以是全局的，绑定到Service，绑定到Router，绑定到Consumer。</p>
+</li>
+<li><p>Certificate：是https证书。</p>
+</li>
+<li><p>Sni：是域名与Certificate的绑定，指定了一个域名对应的https证书。</p>
+</li>
+<li><p>Upstream：表示虚拟主机名，可用于通过多个服务（目标）对传入请求进行负载均衡。例如：service.v1.xyz 为Service对象命名的上游host是service.v1.xyz对此服务的请求将代理到上游定义的目标。</p>
+</li>
+<li><p>Target：目标IP地址/主机名，其端口表示后端服务的实例,是最终处理请求的Backend服务。每个上游都可以有多个target,并且可以动态添加Target。 由于Upstream维护Target的更改历史记录，因此无法删除或者修改Target。要禁用目标，请发布一个新的Target weight=0,或者使用DELETE来完成相同的操作。</p>
+</li>
+</ul>
+<h2 id="Kong插件的格式"><a href="#Kong插件的格式" class="headerlink" title="Kong插件的格式"></a>Kong插件的格式</h2><p>一个完整的插件目录结构应该像下面这样：</p>
+<p><img src="https://raw.githubusercontent.com/fluetty/clouding/main/data/image-20200831151628965.png" alt="image-20200831151628965"></p>
+<p>各个模块的功能：</p>
+<table>
+<thead>
+<tr>
+<th>模块名</th>
+<th>描述</th>
+<th>是否必需</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>api.lua</td>
+<td>插件需要向 Admin API 暴露接口时使用</td>
+<td>N</td>
+</tr>
+<tr>
+<td>daos.lua</td>
+<td>数据层相关，当插件需要访问数据库时配置</td>
+<td>N</td>
+</tr>
+<tr>
+<td>handler.lua</td>
+<td>插件的主要逻辑，这个将会被 Kong 在不同阶段执行其对应的 handler</td>
+<td>Y</td>
+</tr>
+<tr>
+<td>migrations / *.lua</td>
+<td>插件依赖的数据表结构，启用了 daos.lua 时需要定义</td>
+<td>N</td>
+</tr>
+<tr>
+<td>schema.lua</td>
+<td>插件的配置参数定义，主要用于 Kong 参数验证</td>
+<td>Y</td>
+</tr>
+</tbody></table>
+<p>其中 handler.lua 和 schema.lua 是必需的（rbac_charing下也是只有这两个），上面提到的插件需要暴露出来的方法就定义在 handler.lua 中。</p>
+<p><strong>kong插件主要有三个文件</strong>：</p>
+<p>handler.lua 是包含插件逻辑处理相关代码。 schema.lua 包含插件的配置文件。 rockspec 文件是通过luarock安装时用的配置文件。</p>
+<p>逻辑处理的代码根据openResty的不同处理阶段分成了不同的函数，根据插件的功能只需要在不同的函数中添加自己的业务逻辑。</p>
+<h2 id="跟路径（path）有关的参数"><a href="#跟路径（path）有关的参数" class="headerlink" title="跟路径（path）有关的参数"></a>跟路径（path）有关的参数</h2><ol>
+<li> route中的paths参数，表示符合这些请求路径要发到route对应的service中</li>
+<li> route中的strip_path 参数，决定kong转发给后端的时候是否保留源请求用于路由匹配的路径</li>
+<li>service中的path参数，默认为null，kong转发请求时会把这个作为前缀加上</li>
+</ol>
+<p>假设网关以<code>/api</code>为路由把请求转发给nodedemo（即<code>route.paths = [&#39;/api&#39;]</code>)，它们的组合关系如下：</p>
+<table>
+<thead>
+<tr>
+<th>strip_path</th>
+<th>service.path</th>
+<th>请求地址</th>
+<th>网关实际访问后端地址</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>true</td>
+<td>null 或者 /</td>
+<td><a target="_blank" rel="noopener" href="http://127.0.0.1/api/demo">http://127.0.0.1/api/demo</a></td>
+<td><a target="_blank" rel="noopener" href="http://127.0.0.1:8080/demo">http://127.0.0.1:8080/demo</a></td>
+</tr>
+<tr>
+<td>true</td>
+<td>/test</td>
+<td><a target="_blank" rel="noopener" href="http://127.0.0.1/api/demo">http://127.0.0.1/api/demo</a></td>
+<td><a target="_blank" rel="noopener" href="http://127.0.0.1:8080/test/demo">http://127.0.0.1:8080/test/demo</a></td>
+</tr>
+<tr>
+<td>false</td>
+<td>null 或者 /</td>
+<td><a target="_blank" rel="noopener" href="http://127.0.0.1/api/demo">http://127.0.0.1/api/demo</a></td>
+<td><a target="_blank" rel="noopener" href="http://127.0.0.1:8080/api/demo">http://127.0.0.1:8080/api/demo</a></td>
+</tr>
+<tr>
+<td>false</td>
+<td>/test</td>
+<td><a target="_blank" rel="noopener" href="http://127.0.0.1/api/demo">http://127.0.0.1/api/demo</a></td>
+<td><a target="_blank" rel="noopener" href="http://127.0.0.1:8080/test/api/demo">http://127.0.0.1:8080/test/api/demo</a></td>
+</tr>
+</tbody></table>
+<p>以最后一行为例，相当于访问 <a target="_blank" rel="noopener" href="http://127.0.0.1/api/demo">http://127.0.0.1/api/demo</a> 时，实际访问的是<code>/test/api/demo</code>，也就是把 service.path (/test）跟实际请求的路径(/api/demo)拼接起来发给后端。</p>
+<p>配置route时候：这里的 Path 就是具体业务API的路径（endpoint）。Hosts不设置会默认采用Services里的Host，但是一旦设置了，客户端请求该route的时候必须带上设置的host，且必须一致。</p>
+<p>如果Strip path设置为YES，这里的 Path 可以加一个前缀，如：/passport/users，但最终会映射到后端真实的API /users。Kong转发到后端服务的时候会把前缀/passport部分去掉。客户端调用API必须和Routes里的Path一致才行（/passport/users），否则会得到404，无法匹配。用户的请求是先匹配route，然后转发到service。</p>
+<h2 id="参考链接"><a href="#参考链接" class="headerlink" title="参考链接"></a>参考链接</h2><p><a target="_blank" rel="noopener" href="http://blog.didispace.com/hzf-ms-apigateway-2/">微服务与API 网关（下）- Kong能为我们做什么？</a></p>
+<p><a target="_blank" rel="noopener" href="https://segmentfault.com/a/1190000019857235">企业级API网关Kong系列</a></p>
+<p><a target="_blank" rel="noopener" href="https://ms2008.github.io/2018/05/14/kong-plugin-load/">Kong 插件加载机制概述</a></p>
+<p><a target="_blank" rel="noopener" href="https://www.cnblogs.com/SummerinShire/p/6925308.html">Kong-负载均衡参考</a></p>
+<p><a target="_blank" rel="noopener" href="https://www.jianshu.com/p/b65259021d2b">Kong负载均衡的实现</a></p>
+<p><a href="%5Bhttps://www.lijiaocn.com/%E9%A1%B9%E7%9B%AE/2018/11/20/kong-features-16-work-process.html#%E4%BB%8E-upstream-%E5%88%B0-target%5D(https://www.lijiaocn.com/%E9%A1%B9%E7%9B%AE/2018/11/20/kong-features-16-work-process.html#%E4%BB%8E-upstream-%E5%88%B0-target)">upstream和target详解</a></p>
+</div><div class="post-copyright"><blockquote><p>原文作者: 高小秋</p><p>原文链接: <a href="http://example.com/2020/11/05/开源API网关Kong笔记/">http://example.com/2020/11/05/开源API网关Kong笔记/</a></p><p>版权声明: 转载请注明出处(必须保留作者署名及链接)</p></blockquote></div><div class="tags"><a href="/tags/kong/">kong</a></div><div class="post-share"><div class="social-share"><span>分享到:</span></div></div><div class="post-nav"><a href="/2020/11/05/nginx%E5%AD%A6%E4%B9%A0%E8%AE%B0%E5%BD%95/" class="pre">nginx学习记录</a><a href="/2020/11/05/Docker%E5%B8%B8%E7%94%A8%E6%8C%87%E4%BB%A4/" class="next">Docker常用指令</a></div><div id="comments"></div></div></div></div><div class="layout-r"><div id="sidebar"><div class="search-pla"></div><div id="toc" class="widget"><div class="widget-title"><i class="fa fa-fei">文章目录</i></div><ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BB%80%E4%B9%88%E6%98%AFAPI%E7%BD%91%E5%85%B3%EF%BC%9F"><span class="toc-text">什么是API网关？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Kong%E7%AE%80%E4%BB%8B"><span class="toc-text">Kong简介</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Kong%E7%9A%84%E5%9F%BA%E6%9C%AC%E6%9E%B6%E6%9E%84"><span class="toc-text">Kong的基本架构</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#Kong-%E9%BB%98%E8%AE%A4%E7%BB%91%E5%AE%9A4%E4%B8%AA%E7%AB%AF%E5%8F%A3"><span class="toc-text">Kong 默认绑定4个端口</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Kong-%E4%B8%BB%E8%A6%81%E6%9C%89%E4%B8%89%E4%B8%AA%E7%BB%84%E4%BB%B6"><span class="toc-text">Kong 主要有三个组件</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Kong-%E7%BD%91%E5%85%B3%E5%85%B7%E6%9C%89%E4%BB%A5%E4%B8%8B%E7%9A%84%E7%89%B9%E6%80%A7"><span class="toc-text">Kong 网关具有以下的特性</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%9B%B8%E5%85%B3%E6%9C%AF%E8%AF%AD"><span class="toc-text">相关术语</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Kong%E6%8F%92%E4%BB%B6%E7%9A%84%E6%A0%BC%E5%BC%8F"><span class="toc-text">Kong插件的格式</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%B7%9F%E8%B7%AF%E5%BE%84%EF%BC%88path%EF%BC%89%E6%9C%89%E5%85%B3%E7%9A%84%E5%8F%82%E6%95%B0"><span class="toc-text">跟路径（path）有关的参数</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8F%82%E8%80%83%E9%93%BE%E6%8E%A5"><span class="toc-text">参考链接</span></a></li></ol></div><div class="widget"><div class="widget-title"><i class="fa fa-xie"> 最新文章</i></div><ul class="post-list"><li class="post-list-item"><a class="post-list-link" href="/2020/11/05/nginx%E5%AD%A6%E4%B9%A0%E8%AE%B0%E5%BD%95/">nginx学习记录</a></li><li class="post-list-item"><a class="post-list-link" href="/2020/11/05/%E5%BC%80%E6%BA%90API%E7%BD%91%E5%85%B3Kong%E7%AC%94%E8%AE%B0/">开源API网关Kong笔记</a></li><li class="post-list-item"><a class="post-list-link" href="/2020/11/05/Docker%E5%B8%B8%E7%94%A8%E6%8C%87%E4%BB%A4/">Docker常用指令</a></li><li class="post-list-item"><a class="post-list-link" href="/2020/11/04/PicGo-GitHub%E5%AE%9E%E7%8E%B0%E5%85%8D%E8%B4%B9%E5%9B%BE%E5%BA%8A/">PicGo+GitHub实现免费图床</a></li></ul></div><div class="widget"><div class="widget-title"><i class="fa fa-biao"> 标签</i></div><div class="tagcloud"><a href="/tags/nginx/" style="font-size: 15px;">nginx</a> <a href="/tags/kong/" style="font-size: 15px;">kong</a> <a href="/tags/docker/" style="font-size: 15px;">docker</a> <a href="/tags/learn/" style="font-size: 15px;">learn</a></div></div><div class="widget"><div class="widget-title"><i class="fa fa-archive"> 归档</i></div><ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2020/">2020</a><span class="archive-list-count">4</span></li></ul></div><div class="widget"><div class="widget-title"><i class="fa fa-you"> 友情链接</i></div><ul></ul><a href="http://www.example1.com/" title="site-name1" target="_blank">site-name1</a><ul></ul><a href="http://www.example2.com/" title="site-name2" target="_blank">site-name2</a><ul></ul><a href="http://www.example3.com/" title="site-name3" target="_blank">site-name3</a></div></div></div></div><a id="totop" href="#top"></a><div id="footer"><div class="footer-info"><p><a href="/baidusitemap.xml">网站地图</a> |  <a href="/atom.xml">订阅本站</a> |  <a href="/about/">联系博主</a></p><p>本站总访问量：<i id="busuanzi_container_site_pv"><i id="busuanzi_value_site_pv"></i></i>次，本站总访客数:<i id="busuanzi_container_site_uv"><i id="busuanzi_value_site_uv"></i></i>人</p><p><span> Copyright &copy;<a href="/." rel="nofollow">高小秋.</a></span><span> Theme by<a rel="nofollow" target="_blank" href="https://github.com/chaooo/hexo-theme-BlueLake"> BlueLake.</a></span><span> Count by<a target="_blank" rel="noopener" href="http://busuanzi.ibruce.info/"> busuanzi.</a></span><span> Powered by<a rel="nofollow" target="_blank" href="https://hexo.io"> Hexo.</a></span></p></div></div></div><script src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" async></script><script type="text/javascript" src="/js/search.json.js?v=2.0.5"></script><div id="fullscreen-img" class="hide"><span class="close"></span></div><script type="text/javascript" src="/js/imgview.js?v=2.0.5" async></script><script type="text/javascript" src="/js/toctotop.js?v=2.0.5" async></script><link rel="stylesheet" type="text/css" href="/share/css/share.css"><script type="text/javascript" src="/share/js/social-share.js" charset="utf-8"></script><script type="text/javascript" src="/share/js/qrcode.js" charset="utf-8"></script></body></html>
